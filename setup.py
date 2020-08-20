@@ -9,7 +9,7 @@ with open('VERSION') as f:
 long_description = 'Mason Dask Exeuction Jobs'
 
 setup(
-    name='mason_dask',
+    name='mason-dask',
     version=version,
     author='Kyle Prifogle',
     author_email='kyle.prifogle@samtec.com',
