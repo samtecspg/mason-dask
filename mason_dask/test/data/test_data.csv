@@ -1,0 +1,5 @@
+col_a,col_b,col_c,col_d,col_e,col_f
+test1,123,test2,456,789,V,
+test3,789,test3,456,789,A,
+test2,123,test2,456,789,,
+test4,789,test4,456,444,,
