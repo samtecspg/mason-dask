@@ -12,9 +12,6 @@ from mason_dask.utils.cluster_spec import ClusterSpec
 
 TMP = "../tmp/"
 
-def local_client():
-    cluster = LocalCluster(n_workers=2)
-    return Client(cluster)
 
 @pytest.fixture(autouse=True)
 def run_around_tests():
@@ -27,8 +24,9 @@ def clear_tmp():
 
 
 def test_local_client():
-    cluster_spec = ClusterSpec(local_client())
-    assert (len(cluster_spec.worker_specs) == 2)
+    with Client(LocalCluster(n_workers=2)) as client:
+        cluster_spec = ClusterSpec(client)
+        assert (len(cluster_spec.worker_specs) == 2)
 
 
 def test_schema():
@@ -85,88 +83,89 @@ def test_csv():
         "partition_columns": [],
     }
 
-    client = local_client()
-    cluster_spec = ClusterSpec(client)
-    assert(len(cluster_spec.worker_specs) == 2)
+    with Client(LocalCluster(n_workers=2)) as client:
 
-    job = FormatJob(spec).validate()
-    assert(isinstance(job, ValidFormatJob))
-    job.run(client)
+        cluster_spec = ClusterSpec(client)
+        assert(len(cluster_spec.worker_specs) == 2)
 
-    parts = ["0.part", '1.part']
-    assert(listdir(TMP + "/csv/"), parts)
-    for p in parts:
-        df = dd.read_csv(TMP + f"/csv/{p}").compute()
-        assert(df.shape[0] == 2)
-        assert(sorted(list(df["col_a"])) == [123, 789])
+        job = FormatJob(spec).validate()
+        assert(isinstance(job, ValidFormatJob))
+        job.run(client)
 
-    clear_tmp()
+        parts = ["0.part", '1.part']
+        assert(listdir(TMP + "/csv/"), parts)
+        for p in parts:
+            df = dd.read_csv(TMP + f"/csv/{p}").compute()
+            assert(df.shape[0] == 2)
+            assert(sorted(list(df["col_a"])) == [123, 789])
 
-    # one partition column
-    spec = {
-        "input_paths": ["../data/test_data.csv"],
-        "input_format": "csv",
-        "output_format": "csv",
-        "output_path": TMP + "csv/",
-        "filter_columns": [],
-        "partition_columns": ["col_a"],
-    }
+        clear_tmp()
+
+        # one partition column
+        spec = {
+            "input_paths": ["../data/test_data.csv"],
+            "input_format": "csv",
+            "output_format": "csv",
+            "output_path": TMP + "csv/",
+            "filter_columns": [],
+            "partition_columns": ["col_a"],
+        }
 
 
-    job = FormatJob(spec).validate()
-    assert(isinstance(job, ValidFormatJob))
-    job.run(local_client())
+        job = FormatJob(spec).validate()
+        assert(isinstance(job, ValidFormatJob))
+        job.run(client)
 
-    parts = [789, 123]
-    assert(listdir(TMP + "csv/"), list(map(lambda p: f"col_a={p}", parts)))
+        parts = [789, 123]
+        assert(listdir(TMP + "csv/"), list(map(lambda p: f"col_a={p}", parts)))
 
-    for p in parts:
-        df = dd.read_csv(TMP + f"/csv/col_a={p}/0.part").compute()
-        assert(df.shape[0] == 2)
-        assert(sorted(list(df["col_a"])) == [p, p])
+        for p in parts:
+            df = dd.read_csv(TMP + f"/csv/col_a={p}/0.part").compute()
+            assert(df.shape[0] == 2)
+            assert(sorted(list(df["col_a"])) == [p, p])
 
-    # two partition columns
-    clear_tmp()
-    spec = {
-        "input_paths": ["../data/test_data.csv"],
-        "input_format": "csv",
-        "output_format": "csv",
-        "output_path": TMP + "csv/",
-        "filter_columns": [],
-        "partition_columns": ["col_a","col_b"],
-    }
-    job = FormatJob(spec).validate()
-    assert(isinstance(job, ValidFormatJob))
-    job.run(local_client())
+        # two partition columns
+        clear_tmp()
+        spec = {
+            "input_paths": ["../data/test_data.csv"],
+            "input_format": "csv",
+            "output_format": "csv",
+            "output_path": TMP + "csv/",
+            "filter_columns": [],
+            "partition_columns": ["col_a","col_b"],
+        }
+        job = FormatJob(spec).validate()
+        assert(isinstance(job, ValidFormatJob))
+        job.run(client)
 
-    parts = {(789, "test3"): [789], (789, "test4"): [789], (123, "test2"): [123,123]}
-    assert(listdir(TMP + "csv/"), list(map(lambda p: f"col_a={p[0]}&col_b={p[1]}", list(parts.keys()))))
+        parts = {(789, "test3"): [789], (789, "test4"): [789], (123, "test2"): [123,123]}
+        assert(listdir(TMP + "csv/"), list(map(lambda p: f"col_a={p[0]}&col_b={p[1]}", list(parts.keys()))))
 
-    for (p, e) in parts.items():
-        df = dd.read_csv(TMP + f"/csv/col_a={p[0]}&col_b={p[1]}/0.part").compute()
-        assert(df.shape[0] == len(e))
-        assert(sorted(list(df["col_a"])) == e)
+        for (p, e) in parts.items():
+            df = dd.read_csv(TMP + f"/csv/col_a={p[0]}&col_b={p[1]}/0.part").compute()
+            assert(df.shape[0] == len(e))
+            assert(sorted(list(df["col_a"])) == e)
 
-    # filter columns
-    clear_tmp()
-    spec = {
-        "input_paths": ["../data/test_data.csv"],
-        "input_format": "csv",
-        "output_format": "csv",
-        "output_path": TMP + "csv/",
-        "filter_columns": ["col_a", "col_b"],
-        "partition_columns": [],
-    }
+        # filter columns
+        clear_tmp()
+        spec = {
+            "input_paths": ["../data/test_data.csv"],
+            "input_format": "csv",
+            "output_format": "csv",
+            "output_path": TMP + "csv/",
+            "filter_columns": ["col_a", "col_b"],
+            "partition_columns": [],
+        }
 
-    job = FormatJob(spec).validate()
-    assert (isinstance(job, ValidFormatJob))
-    job.run(local_client())
+        job = FormatJob(spec).validate()
+        assert (isinstance(job, ValidFormatJob))
+        job.run(client)
 
-    parts = ["0.part", '1.part']
-    assert(listdir(TMP + "/csv/"), parts)
-    df = dd.read_csv(TMP + f"/csv/*").compute()
-    assert(df.shape[0] == 4)
-    assert(list(df.columns) == ["col_a", "col_b"])
+        parts = ["0.part", '1.part']
+        assert(listdir(TMP + "/csv/"), parts)
+        df = dd.read_csv(TMP + f"/csv/*").compute()
+        assert(df.shape[0] == 4)
+        assert(list(df.columns) == ["col_a", "col_b"])
 
 def test_parquet():
     # baseline
@@ -181,36 +180,38 @@ def test_parquet():
 
     job = FormatJob(spec).validate()
     assert (isinstance(job, ValidFormatJob))
-    job.run(local_client())
+    with Client(LocalCluster(n_workers=2)) as client:
 
-    parts = ["part.0.parquet", 'part.1.parquet']
-    assert(listdir(TMP + "/parquet/"), parts)
-    for p in parts:
-        df = dd.read_parquet(TMP + f"/parquet/{p}").compute()
-        assert(df.shape[0] == 2)
-        assert(sorted(list(df["col_a"])) == [123, 789])
+        job.run(client)
 
-    # partition_columns
-    spec = {
-        "input_paths": ["../data/test_data.csv"],
-        "input_format": "csv",
-        "output_format": "parquet",
-        "output_path": TMP + "parquet/",
-        "filter_columns": [],
-        "partition_columns": ["col_a"],
-    }
+        parts = ["part.0.parquet", 'part.1.parquet']
+        assert(listdir(TMP + "/parquet/"), parts)
+        for p in parts:
+            df = dd.read_parquet(TMP + f"/parquet/{p}").compute()
+            assert(df.shape[0] == 2)
+            assert(sorted(list(df["col_a"])) == [123, 789])
 
-    job = FormatJob(spec).validate()
-    assert(isinstance(job, ValidFormatJob))
-    job.run(local_client())
+        # partition_columns
+        spec = {
+            "input_paths": ["../data/test_data.csv"],
+            "input_format": "csv",
+            "output_format": "parquet",
+            "output_path": TMP + "parquet/",
+            "filter_columns": [],
+            "partition_columns": ["col_a"],
+        }
 
-    parts = [789, 123]
-    assert(listdir(TMP + "parquet/"), list(map(lambda p: f"col_a={p}", parts)))
+        job = FormatJob(spec).validate()
+        assert(isinstance(job, ValidFormatJob))
+        job.run(client)
 
-    for p in parts:
-        df = dd.read_parquet(TMP + f"parquet/col_a={p}/part.0.parquet").compute()
-        assert(df.shape[0] == 2)
-        assert(sorted(list(df["col_a"])) == [p, p])
+        parts = [789, 123]
+        assert(listdir(TMP + "parquet/"), list(map(lambda p: f"col_a={p}", parts)))
+
+        for p in parts:
+            df = dd.read_parquet(TMP + f"parquet/col_a={p}/part.0.parquet").compute()
+            assert(df.shape[0] == 2)
+            assert(sorted(list(df["col_a"])) == [p, p])
 
 
 def test_json():
@@ -226,15 +227,17 @@ def test_json():
 
     job = FormatJob(spec).validate()
     assert (isinstance(job, ValidFormatJob))
-    job.run(local_client())
-    
-    parts = ["0.part", '1.part']
-    assert(listdir(TMP + "/json/"), parts)
-    for p in parts:
-        df = dd.read_json(TMP + f"/json/{p}").compute()
-        assert(df.shape[0] == 2)
-        assert(sorted(list(df["col_a"])) == [123, 789])
+    with Client(LocalCluster(n_workers=2)) as client:
+
+        job.run(client)
         
+        parts = ["0.part", '1.part']
+        assert(listdir(TMP + "/json/"), parts)
+        for p in parts:
+            df = dd.read_json(TMP + f"/json/{p}").compute()
+            assert(df.shape[0] == 2)
+            assert(sorted(list(df["col_a"])) == [123, 789])
+            
 def test_xlsx():
     # baseline
     spec = {
@@ -248,9 +251,10 @@ def test_xlsx():
 
     job = FormatJob(spec).validate()
     assert (isinstance(job, ValidFormatJob))
-    job.run(local_client())
+    with Client(LocalCluster(n_workers=2)) as client:
+        job.run(client)
 
-    parts = ["part_0.xlsx", 'part1.xlsx']
-    assert(listdir(TMP + "/json/"), parts)
+        parts = ["part_0.xlsx", 'part1.xlsx']
+        assert(listdir(TMP + "xlsx/"), parts)
 
 
