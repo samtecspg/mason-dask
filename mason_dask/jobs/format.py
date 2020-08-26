@@ -1,9 +1,10 @@
 from collections import namedtuple
 from typing import List, Union, Optional
 
+import dask
 from dask.dataframe import DataFrame
 from dask import dataframe as dd, delayed
-from distributed import Client
+from dask.delayed import Delayed
 from fsspec.core import OpenFile, open_files
 from pandas import DataFrame as PDataFrame
 from pyexcelerate import Workbook
@@ -37,7 +38,7 @@ class FormatJob:
             "partition_columns": [Use(str)],
             "filter_columns": [Use(str)],
             SOptional("line_terminator", default="\n"): str,
-            SOptional("partitions", default="auto"): str
+            SOptional("partitions"): Use(int)
         }
         return Schema(schema)
 
@@ -59,14 +60,19 @@ class ValidFormatJob:
         self.partition_columns: List[str] = t.partition_columns
         self.filter_columns: List[str] = t.filter_columns
         self.line_terminator: str = t.line_terminator
-        self.partitions: str = t.partitions
+        self.partitions: Optional[int]
+        try:
+            self.partitions = t.partitions
+        except AttributeError:
+            self.partitions = None 
+            
         
 
     def df(self) -> Union[DataFrame, InvalidJob]:
         paths = self.input_paths
         df: DataFrame
         if self.input_format in VALID_TEXT_FORMATS:
-            df = dd.read_csv(paths, lineterminator=self.line_terminator)
+            df = dd.read_csv(paths, lineterminator=self.line_terminator, assume_missing=True, sample=25000000)
             final = df
         elif self.input_format == "parquet":
             df = dd.read_parquet(paths)
@@ -98,7 +104,7 @@ class ValidFormatJob:
             writer = pd.ExcelWriter('test_out.xlsx', engine='xlsxwriter')
             to_excel_chunk = delayed(_write_excel)
 
-            dfs = df.to_delayed()
+            dfs = df.repartition(partition_size="10MB").to_delayed()
 
             def name_function(i: int):
                 return f"part_{i}.xlsx"
@@ -128,8 +134,7 @@ class ValidFormatJob:
             output_path = output_path + label + "/"
 
         if output_format == "csv":
-            dd.to_csv(df, output_path)
-            df.to_csv(output_path, index=False)
+            dd.to_csv(df, output_path, index=False)
             final = good_job()
         elif output_format == "parquet":
             dd.to_parquet(df, output_path)
@@ -144,6 +149,10 @@ class ValidFormatJob:
             final = InvalidJob(f"Invalid input format: {self.input_format}")
 
         return final
+    
+    def df_to_simple(self, df: DataFrame, output_path: str) -> List[Delayed]:
+        a: List[Delayed] = dd.to_csv(df, output_path, index=False)
+        return a
 
     def check_columns(self, df: DataFrame, columns: List[str]) -> Union[bool, InvalidJob]:
         keys = df.dtypes.keys()
@@ -153,39 +162,41 @@ class ValidFormatJob:
         else:
             return InvalidJob(f"Filter columns {', '.join(diff)} not a subset of {', '.join(keys)}")
 
-    def repartition(self, df: DataFrame, client: Client, num_partitions: str) -> Union[DataFrame, InvalidJob]:
-        cluster_spec = ClusterSpec(client)
-
+    def repartition(self, df: DataFrame, cluster_spec: ClusterSpec, partitions: Optional[int]) -> Union[DataFrame, InvalidJob]:
         size = df.size.compute()
-        workers = cluster_spec.num_workers()
         final: Union[DataFrame, InvalidJob]
-        if num_partitions == "auto":
-            parts = workers
-        else:
-            try:
-                parts = int(num_partitions)
-            except ValueError as e:
-                parts = InvalidJob(f"Invalid partitions specification: {num_partitions}")
+        
+        num_partitions = self.partitions
 
-        if not isinstance(parts, InvalidJob):
-            even_worker_partition_size = size / workers
-            max_partition_size = cluster_spec.max_partition_size()
-            if even_worker_partition_size > max_partition_size:
-                final = InvalidJob(
-                    f"Partitions too large for workers: (size, max) = ({even_worker_partition_size}, {max_partition_size}).  Add more workers or increase worker memory.")
-            else:
-                final = df.repartition(partition_size=even_worker_partition_size).repartition(npartitions=parts)
+        if cluster_spec.valid():
+            cluster_spec_num_workers = cluster_spec.num_workers() 
         else:
-            final = parts
+            cluster_spec_num_workers = None
+            
+        num_workers = num_partitions or cluster_spec_num_workers 
+        
+        if num_workers:
+            max_partition_size = cluster_spec.max_partition_size()
+            even_partition_size = size / num_workers 
+            if max_partition_size:
+                if even_partition_size > max_partition_size:
+                    final = InvalidJob(f"Partitions too large for workers: (size, max) = ({even_partition_size}, {max_partition_size}).  Add more workers or increase worker memory.")
+                else:
+                    final = df.repartition(partition_size=even_partition_size).repartition(npartitions=num_workers)
+            else:
+                final = df.repartition(partition_size=even_partition_size).repartition(npartitions=num_workers)
+        else:
+            final = df
 
         return final
 
-    def run(self, client: Client) -> Union[ExecutedJob, InvalidJob]:
+    def run(self, cluster_spec: ClusterSpec):
         df = self.df()
-        cluster_spec = ClusterSpec(client)
+        
         if isinstance(df, DataFrame):
             def write_partitioned(df: PDataFrame, partition_columns: List[str]):
-                ddf = dd.from_pandas(df, npartitions=cluster_spec.num_workers())
+                # TODO:  Fix default value
+                ddf = dd.from_pandas(df, npartitions=cluster_spec.num_workers() or self.partitions or 10)
                 labels = {}
 
                 for p in partition_columns:
@@ -203,8 +214,9 @@ class ValidFormatJob:
                     df = check
                 else:
                     df = df[self.filter_columns]
-                    df = self.repartition(df, client, self.partitions)
+                    df = self.repartition(df, cluster_spec, self.partitions)
 
+            final: Union[ExecutedJob, InvalidJob]
             if len(self.partition_columns) > 0:
                 check = self.check_columns(df, self.partition_columns)
                 if isinstance(check, InvalidJob):
@@ -215,12 +227,14 @@ class ValidFormatJob:
                     results = list(a.values)
                     final = ExecutedJob(", ".join(results))
             else:
-                df = self.repartition(df, client, self.partitions)
-                final: Union[ExecutedJob, InvalidJob] = self.df_to(df)
-
+                df = self.repartition(df, cluster_spec, self.partitions)
+                if isinstance(df, DataFrame):
+                    final = self.df_to(df)
+                else:
+                    final = df
 
         else:
             final = df
-
+            
         return final
 
