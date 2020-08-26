@@ -61,6 +61,8 @@ class ValidFormatJob:
         self.filter_columns: List[str] = t.filter_columns
         self.line_terminator: str = t.line_terminator
         self.partitions: Optional[int]
+        self.partition_limit = 10000
+        
         try:
             self.partitions = t.partitions
         except AttributeError:
@@ -223,9 +225,18 @@ class ValidFormatJob:
                     final = check
                 else:
                     pc = self.partition_columns
-                    a = df.groupby(pc).apply(write_partitioned, pc, meta=str).compute()
-                    results = list(a.values)
-                    final = ExecutedJob(", ".join(results))
+                    invalid: Optional[str] = None
+                    for p in pc:
+                        size = len(df[p].unique())
+                        if size > self.partition_limit:
+                            invalid = f"{p} has length {size} which is greater than the partition limit {self.partition_limit}"
+                            break
+                    if invalid:
+                        final = InvalidJob(f"Partition Limit Too Large: {invalid}")
+                    else:
+                        a = df.groupby(pc).apply(write_partitioned, pc, meta=str).compute()
+                        results = list(a.values)
+                        final = ExecutedJob(", ".join(results))
             else:
                 df = self.repartition(df, cluster_spec, self.partitions)
                 if isinstance(df, DataFrame):

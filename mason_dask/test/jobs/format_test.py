@@ -156,6 +156,15 @@ def test_csv():
             assert(df.shape[0] == 2)
             assert(sorted(list(df["col_a"])) == [prt, prt])
 
+        # partition limit
+        spec["partition_columns"] = ["col_a"]
+        job = FormatJob(spec).validate()
+        assert(isinstance(job, ValidFormatJob))
+        job.partition_limit = 1
+        result = job.run(cluster_spec)
+        assert(isinstance(result, InvalidJob))
+        assert(result.message == 'Partition Limit Too Large: col_a has length 2 which is greater than the partition limit 1')
+
         # two partition columns
         clear_tmp()
         spec["partition_columns"] = ["col_a", "col_b"]
@@ -166,9 +175,8 @@ def test_csv():
         part_dict = {(789.0, "test3"): [789.0], (789.0, "test4"): [789.0], (123.0, "test2"): [123.0,123.0]}
         assert(sorted(listdir(TMP + "csv/")) == sorted(list(map(lambda p: f"col_a={p[0]}&col_b={p[1]}", list(part_dict.keys())))))
 
-        for item in part_dict.items(): 
-            
-            df = dd.read_csv(TMP + f"/csv/col_a={prt[0]}&col_b={prt[1]}/0.part").compute()
+        for prt, e in part_dict.items():  # type: ignore
+            df = dd.read_csv(TMP + f"/csv/col_a={prt[0]}&col_b={prt[1]}/0.part").compute() # type: ignore
             assert(df.shape[0] == len(e))
             assert(sorted(list(df["col_a"])) == e)
 
