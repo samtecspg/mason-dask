@@ -7,7 +7,7 @@ from mason_dask.utils.worker_spec import WorkerSpec
 
 class ClusterSpec:
     
-    def __init__(self, client: Client, num_workers: Optional[int] = None, desired_spec: Optional[WorkerSpec] = None):
+    def __init__(self, client: Client, num_workers: Optional[int] = None, desired_spec: Optional[WorkerSpec] = None, scheduler: Optional[str] = None):
         self.worker_specs = None
         if client.cluster and client.cluster.scheduler:
             workers_dict: dict = client.cluster.scheduler.workers
@@ -18,6 +18,7 @@ class ClusterSpec:
             assert(desired_spec is not None)
             assert(num_workers is not None)
             self.worker_specs = [desired_spec] * num_workers 
+        self.scheduler = scheduler
             
     def valid(self) -> bool:
         if self.worker_specs:

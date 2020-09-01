@@ -1,7 +1,6 @@
 from collections import namedtuple
 from typing import List, Union, Optional
 
-import dask
 from dask.dataframe import DataFrame
 from dask import dataframe as dd, delayed
 from dask.delayed import Delayed
@@ -37,6 +36,7 @@ class FormatJob:
             "output_path": Use(str),
             "partition_columns": [Use(str)],
             "filter_columns": [Use(str)],
+            SOptional("credentials"): Use(dict),
             SOptional("line_terminator", default="\n"): str,
             SOptional("partitions"): Use(int)
         }
@@ -56,7 +56,13 @@ class ValidFormatJob:
         self.input_paths: List[str] = t.input_paths
         self.input_format: str = t.input_format
         self.output_format: str = t.output_format
-        self.output_path: str = t.output_path
+        outpath: str = t.output_path
+        
+        if outpath.endswith("/"):
+            self.output_path = outpath
+        else:
+            self.output_path = outpath + "/"
+            
         self.partition_columns: List[str] = t.partition_columns
         self.filter_columns: List[str] = t.filter_columns
         self.line_terminator: str = t.line_terminator
@@ -66,7 +72,6 @@ class ValidFormatJob:
         except AttributeError:
             self.partitions = None 
             
-        
 
     def df(self) -> Union[DataFrame, InvalidJob]:
         paths = self.input_paths
@@ -162,7 +167,7 @@ class ValidFormatJob:
         else:
             return InvalidJob(f"Filter columns {', '.join(diff)} not a subset of {', '.join(keys)}")
 
-    def repartition(self, df: DataFrame, cluster_spec: ClusterSpec, partitions: Optional[int]) -> Union[DataFrame, InvalidJob]:
+    def repartition(self, df: DataFrame, cluster_spec: ClusterSpec) -> Union[DataFrame, InvalidJob]:
         size = df.size.compute()
         final: Union[DataFrame, InvalidJob]
         
@@ -196,7 +201,7 @@ class ValidFormatJob:
         if isinstance(df, DataFrame):
             def write_partitioned(df: PDataFrame, partition_columns: List[str]):
                 # TODO:  Fix default value
-                ddf = dd.from_pandas(df, npartitions=cluster_spec.num_workers() or self.partitions or 10)
+                ddf = dd.from_pandas(df, npartitions=self.partitions or cluster_spec.num_workers() or 10)
                 labels = {}
 
                 for p in partition_columns:
@@ -214,7 +219,7 @@ class ValidFormatJob:
                     df = check
                 else:
                     df = df[self.filter_columns]
-                    df = self.repartition(df, cluster_spec, self.partitions)
+                    df = self.repartition(df, cluster_spec)
 
             final: Union[ExecutedJob, InvalidJob]
             if len(self.partition_columns) > 0:
@@ -223,11 +228,16 @@ class ValidFormatJob:
                     final = check
                 else:
                     pc = self.partition_columns
-                    a = df.groupby(pc).apply(write_partitioned, pc, meta=str).compute()
+                    
+                    scheduler: Optional[str] = None
+                    if cluster_spec.scheduler and cluster_spec.scheduler.startswith("local"):
+                        scheduler = "threads"
+                            
+                    a = df.groupby(pc).apply(write_partitioned, pc, meta=str).compute(scheduler=scheduler)
                     results = list(a.values)
                     final = ExecutedJob(", ".join(results))
             else:
-                df = self.repartition(df, cluster_spec, self.partitions)
+                df = self.repartition(df, cluster_spec)
                 if isinstance(df, DataFrame):
                     final = self.df_to(df)
                 else:

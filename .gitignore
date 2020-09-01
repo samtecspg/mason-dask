@@ -5,3 +5,5 @@
 dist/
 mason_dask.egg-info/
 mason_dask/test/jobs/dask-worker-space/*
+mason_dask/*/__pycache__/
+mason_dask/__pycache__/

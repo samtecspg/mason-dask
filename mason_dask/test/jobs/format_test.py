@@ -93,7 +93,7 @@ def test_schema():
     assert(job.output_format == out_format)
     assert(job.line_terminator == "\n")
     assert(job.partitions == None)
-    assert(job.output_path == out_path)
+    assert(job.output_path == out_path + "/")
     assert(job.filter_columns == filter_columns)
     assert(job.partition_columns == partition_columns)
 
@@ -167,10 +167,9 @@ def test_csv():
         assert(sorted(listdir(TMP + "csv/")) == sorted(list(map(lambda p: f"col_a={p[0]}&col_b={p[1]}", list(part_dict.keys())))))
 
         for item in part_dict.items(): 
-            
-            df = dd.read_csv(TMP + f"/csv/col_a={prt[0]}&col_b={prt[1]}/0.part").compute()
-            assert(df.shape[0] == len(e))
-            assert(sorted(list(df["col_a"])) == e)
+            df = dd.read_csv(TMP + f"/csv/col_a={item[0][0]}&col_b={item[0][1]}/0.part").compute()
+            assert(df.shape[0] == len(item[1])) 
+            assert(sorted(list(df["col_a"])) == item[1]) 
 
         # filter columns
         clear_tmp()
@@ -281,7 +280,7 @@ def test_xlsx():
         cluster_spec = ClusterSpec(client)
         job.run(cluster_spec)
 
-        parts = ["part_0.xlsx", 'part_1.xlsx']
+        parts = ["part_0.xlsx"]
         assert(sorted(listdir(TMP + "xlsx/")) == parts)
 
 
