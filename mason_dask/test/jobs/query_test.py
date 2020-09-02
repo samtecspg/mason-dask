@@ -57,6 +57,5 @@ def test_basic():
 
     job = QueryJob(spec).validate()
     assert (isinstance(job, ValidQueryJob))
-    a = job.run()
-    print("HERE")
+    assert(job.run().bind(lambda e: e.message) == "Table succesfully formatted as parquet and exported to ../tmp/csv/")
 

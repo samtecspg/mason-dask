@@ -1,5 +1,4 @@
 from collections import namedtuple
-from functools import partial
 from typing import Union, List
 
 from dask.dataframe import DataFrame
@@ -11,11 +10,11 @@ from schema import Schema, And, Use, SchemaError
 from schema import Optional as SOptional
 
 from mason_dask.models.dataframe_from import df_from
-from mason_dask.models.dataframe_to import df_to as df_to_b
+from mason_dask.models.dataframe_to import df_to as df_to_output
 from mason_dask.utils.exception import message
 
 from returns.pipeline import flow
-from returns.pointfree import bind, bind_result
+from returns.pointfree import bind
 
 class ValidQueryJob:
 
@@ -26,7 +25,7 @@ class ValidQueryJob:
         self.query_string: str = t.query_string
         self.line_terminator: str = t.line_terminator
 
-    def run(self):
+    def run(self) -> Result[ExecutedJob, InvalidJob]:
         return flow(
             self.df(),
             bind(self.query),
@@ -40,7 +39,7 @@ class ValidQueryJob:
         return Success(dataframe)
     
     def df_to(self, dataframe: DataFrame) -> Result[ExecutedJob, InvalidJob]:
-        return df_to_b(dataframe, self.output_path, "parquet")
+        return df_to_output(dataframe, self.output_path, "parquet")
 
 class QueryJob:
     def __init__(self, spec: dict):
