@@ -2,10 +2,6 @@ from os import path
 from shutil import rmtree
 
 import pytest
-from returns.result import Result, Success, Failure
-from returns.pointfree import bind
-from returns.pipeline import flow
-from functools import partial
 
 from mason_dask.jobs.executed import InvalidJob
 from mason_dask.jobs.query import QueryJob, ValidQueryJob
@@ -21,44 +17,6 @@ def run_around_tests():
 def clear_tmp():
     if path.exists(TMP):
         rmtree(TMP)
-
-def test_nested_pipe():
-    
-    class TestClass():
-        
-        def __init__(self, i: int):
-            self.i = i
-
-        def regular_function(self, arg: int) -> float:
-            return float(arg)
-
-        def returns_container(self, test: float, arg: float) -> Result[str, ValueError]:
-            if arg == test:
-                return Success(str(arg))
-            else:
-                return Failure(ValueError('Wrong arg'))
-
-        def also_returns_container(self, arg: str) -> Result[str, ValueError]:
-            if arg != "0":
-                return Success(str(arg))
-            else:
-                return Failure(ValueError('Wrong arg 2'))
-
-        def also_returns_container_2(self, arg: str) -> Result[str, ValueError]:
-            return Success(arg + '!')
-
-        def run(self):
-            a = flow(
-                 self.i,
-                 self.regular_function,
-                 partial(self.returns_container, 0.0),
-                 bind(self.also_returns_container),
-                 bind(self.also_returns_container_2)
-            ) 
-            return a
-        
-    a = TestClass(0).run()
-        
 
 def test_schema():
     in_paths = ["good_input_path", "good_input_path2"]
