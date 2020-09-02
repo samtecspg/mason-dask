@@ -42,32 +42,6 @@ def test_local_client():
         assert (len(cluster_spec.worker_specs) == 2)
         future = client.submit(job.run, cluster_spec)
         final = client.gather(future)
-    
-    # Uncomment to experiment with other types of clients locally:
-    # with Client("dask-scheduler:8786") as client:
-    #     cluster_spec = ClusterSpec(client)
-    #     future = client.submit(job.run, cluster_spec)
-    #     final = client.gather(future)
-    # 
-    # host = "dask-scheduler" 
-    # port = "8786" 
-    # pod_spec = make_pod_spec(
-    #     image='daskdev/dask:latest',
-    #     env={'EXTRA_PIP_PACKAGES': 'git+https://github.com/dask/distributed s3fs pyexcelerate --upgrade',
-    #          'EXTRA_CONDA_PACKAGES': 'fastparquet -c conda-forge'}
-    # )
-    # cluster = KubeCluster(pod_spec, deploy_mode="remote")
-    # cluster.port = port
-    # cluster.host = host
-    # cluster.scale_up(2)
-    # 
-    # dask.config.set({'distributed.scheduler.allowed-failures': 50})
-    # 
-    # with Client(cluster) as client:
-    #     cluster_spec = ClusterSpec(client)
-    #     future = client.submit(job.run, cluster_spec)
-    #     final = client.gather(future)
-
 
 def test_schema():
     in_paths = ["good_input_path", "good_input_path2"]
@@ -134,7 +108,7 @@ def test_csv():
         job.run(cluster_spec)
 
         parts = ["0.part", '1.part']
-        assert(listdir(TMP + "/csv/") == parts)
+        assert(listdir(TMP + "csv/") == parts)
         for p in parts:
             df = dd.read_csv(TMP + f"/csv/{p}").compute()
             assert(df.shape[0] == 2)
@@ -166,9 +140,9 @@ def test_csv():
         part_dict = {(789.0, "test3"): [789.0], (789.0, "test4"): [789.0], (123.0, "test2"): [123.0,123.0]}
         assert(sorted(listdir(TMP + "csv/")) == sorted(list(map(lambda p: f"col_a={p[0]}&col_b={p[1]}", list(part_dict.keys())))))
 
-        for item in part_dict.items(): 
+        for item in part_dict.items():
             df = dd.read_csv(TMP + f"/csv/col_a={item[0][0]}&col_b={item[0][1]}/0.part").compute()
-            assert(df.shape[0] == len(item[1])) 
+            assert(df.shape[0] == len(item[1]))
             assert(sorted(list(df["col_a"])) == item[1]) 
 
         # filter columns
