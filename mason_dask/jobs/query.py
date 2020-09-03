@@ -36,6 +36,7 @@ class ValidQueryJob:
         return df_from(self.input_paths, self.input_format, self.line_terminator)
     
     def query(self, dataframe: DataFrame) -> Result[DataFrame, InvalidJob]:
+        #  There is not currently a good SQL interface for Dask without using cuDF
         return Success(dataframe)
     
     def df_to(self, dataframe: DataFrame) -> Result[ExecutedJob, InvalidJob]:
