@@ -16,6 +16,9 @@ from mason_dask.utils.exception import message
 from returns.pipeline import flow
 from returns.pointfree import bind
 
+from dask_sql import Context
+
+
 class ValidQueryJob:
 
     def __init__(self, t):
@@ -36,8 +39,10 @@ class ValidQueryJob:
         return df_from(self.input_paths, self.input_format, self.line_terminator)
     
     def query(self, dataframe: DataFrame) -> Result[DataFrame, InvalidJob]:
-        #  There is not currently a good SQL interface for Dask without using cuDF
-        return Success(dataframe)
+        c = Context()
+        c.register_dask_table(dataframe, "$dataframe")
+        queried = c.sql(self.query_string)
+        return Success(queried)
     
     def df_to(self, dataframe: DataFrame) -> Result[ExecutedJob, InvalidJob]:
         return df_to_output(dataframe, self.output_path, "parquet")

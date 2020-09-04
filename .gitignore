@@ -4,5 +4,5 @@
 .idea/*
 dist/
 mason_dask.egg-info/
-mason_dask/test/jobs/dask-worker-space/*
+mason_dask/test/jobs/dask-worker-space/**/*
 **/*/__pycache__/*

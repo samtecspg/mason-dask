@@ -10,3 +10,5 @@ fastparquet>=0.3.3
 XlsxWriter>=1.3.1
 lz4<=3.1.0
 returns==0.14.0
+pytest-spec==2.0.0
+-e git://github.com/kyprifog/dask-sql.git#egg=dask_sql-0.1-py3.8.egg
