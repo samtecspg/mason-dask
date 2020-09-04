@@ -60,7 +60,7 @@ def test_basic():
 
     job = QueryJob(spec).validate()
     assert (isinstance(job, ValidQueryJob))
-    assert(job.run().bind(lambda e: e.message) == "Table succesfully formatted as parquet and exported to ../tmp/query_out/")
+    assert(job.run().bind(lambda e: e.message) == "Table succesfully formatted as parquet and exported to ../tmp/query_out/") # type: ignore
     df = dd.read_parquet(TMP + f"/query_out/part.0.parquet").compute()
 
     assert(df.shape[0] == 3)
@@ -77,6 +77,7 @@ def test_basic():
         "query_string": "SELECT * from $dataframe WHERE col_a = '123.0'"
     }
     job = QueryJob(spec).validate()
+    assert (isinstance(job, ValidQueryJob))
     job.run()
 
     assert (isinstance(job, ValidQueryJob))
