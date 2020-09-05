@@ -111,7 +111,7 @@ def test_csv(client):
     job.run(cluster_spec)
 
     parts = ["0.part", '1.part']
-    assert(listdir(TMP + "csv/") == parts)
+    assert(sorted(listdir(TMP + "csv/")) == parts)
     for p in parts:
         df = dd.read_csv(TMP + f"/csv/{p}").compute()
         assert(df.shape[0] == 2)
@@ -158,7 +158,7 @@ def test_csv(client):
     job.run(cluster_spec)
 
     parts = ["0.part", '1.part']
-    assert(listdir(TMP + "/csv/") == parts)
+    assert(sorted(listdir(TMP + "/csv/")) == parts)
     df = dd.read_csv(TMP + f"/csv/*").compute()
     assert(df.shape[0] == 4)
     assert(list(df.columns) == ["col_a", "col_b"])
@@ -170,7 +170,7 @@ def test_csv(client):
     job = FormatJob(spec).validate()
     assert (isinstance(job, ValidFormatJob))
     job.run(cluster_spec)
-    assert(listdir(TMP + "csv/") == ["0.part", "1.part", "2.part", "3.part"])
+    assert(sorted(listdir(TMP + "csv/")) == ["0.part", "1.part", "2.part", "3.part"])
 
 def test_parquet(client):
     # baseline
@@ -232,7 +232,7 @@ def test_json(client):
     job.run(cluster_spec)
     
     parts = ["0.part", '1.part']
-    assert(listdir(TMP + "/json/") == parts)
+    assert(sorted(listdir(TMP + "/json/")) == parts)
     for p in parts:
         df = dd.read_json(TMP + f"/json/{p}").compute()
         assert(df.shape[0] == 2)
