@@ -55,7 +55,7 @@ def test_basic():
         "input_paths": [TEST_DATA],
         "input_format": "csv",
         "output_path": TMP + "query_out/",
-        "query_string": "SELECT * from $dataframe LIMIT 3"
+        "query_string": "SELECT * from $table LIMIT 3"
     }
 
     job = QueryJob(spec).validate()
@@ -74,7 +74,7 @@ def test_basic():
         "input_paths": [TEST_DATA],
         "input_format": "csv",
         "output_path": TMP + "query_out/",
-        "query_string": "SELECT * from $dataframe WHERE col_a = '123.0'"
+        "query_string": "SELECT * from $table WHERE col_a = '123.0'"
     }
     job = QueryJob(spec).validate()
     assert (isinstance(job, ValidQueryJob))

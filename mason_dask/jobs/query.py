@@ -27,6 +27,7 @@ class ValidQueryJob:
         self.output_path: str = t.output_path
         self.query_string: str = t.query_string
         self.line_terminator: str = t.line_terminator
+        self.table_name: str = t.table_name
 
     def run(self) -> Result[ExecutedJob, InvalidJob]:
         return flow(
@@ -40,7 +41,7 @@ class ValidQueryJob:
     
     def query(self, dataframe: DataFrame) -> Result[DataFrame, InvalidJob]:
         c = Context()
-        c.register_dask_table(dataframe, "$dataframe")
+        c.register_dask_table(dataframe, self.table_name)
         queried = c.sql(self.query_string)
         return Success(queried)
     
@@ -59,7 +60,8 @@ class QueryJob:
             "input_paths": [Use(str)],
             "output_path": Use(str),
             "query_string": Use(str),
-            SOptional("line_terminator", default="\n"): str
+            SOptional("line_terminator", default="\n"): str,
+            SOptional("table_name", default="$table"): str
         }
         return Schema(schema)
 
