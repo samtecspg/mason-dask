@@ -191,7 +191,7 @@ def test_parquet(client):
     job.run(cluster_spec)
 
     parts = ["part.0.parquet", 'part.1.parquet']
-    assert(list(filter(lambda f: f.endswith(".parquet"),listdir(TMP + "parquet/"))) == parts)
+    assert(sorted(list(filter(lambda f: f.endswith(".parquet"),listdir(TMP + "parquet/")))) == parts)
     for p in parts:
         df = dd.read_parquet(TMP + f"/parquet/{p}").compute()
         assert(df.shape[0] == 2)
@@ -205,7 +205,7 @@ def test_parquet(client):
     job.run(cluster_spec)
 
     prts = [789.0, 123.0]
-    assert(list(filter(lambda f: f.endswith(".parquet"), listdir(TMP + "parquet/"))) == ["part.0.parquet", "part.1.parquet"])
+    assert(sorted(list(filter(lambda f: f.endswith(".parquet"), listdir(TMP + "parquet/")))) == ["part.0.parquet", "part.1.parquet"])
 
     for prt in prts:
         df = dd.read_parquet(TMP + f"parquet/col_a={prt}/part.0.parquet").compute()
