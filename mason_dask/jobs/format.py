@@ -138,7 +138,7 @@ class ValidFormatJob:
             def repartition_and_write(df: DataFrame) -> Result[ExecutedJob, InvalidJob]:
                 pc = self.partition_columns
                 df.groupby(pc).apply(write_partitioned, meta=str).compute()
-                return Success(ExecutedJob("GOOD"))
+                return Success(ExecutedJob(f"Repartitioned dataframe according to columns {self.partition_columns} and output to {self.output_path}"))
             
             check = self.check_columns(df, self.partition_columns)
             return flatten(check.map(lambda b: repartition_and_write(b)))
