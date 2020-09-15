@@ -1,5 +1,6 @@
 #!/bin/sh
 set -e
 
-mypy .
+pip3 install returns
 
+mypy . --config-file=mypy.ini

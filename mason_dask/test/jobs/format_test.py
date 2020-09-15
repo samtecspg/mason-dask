@@ -11,7 +11,7 @@ from dask import dataframe as dd
 
 from mason_dask.utils.cluster_spec import ClusterSpec
 
-TMP = "../tmp/"
+TMP = from_root("/.tmp/")
 TEST_DATA = from_root("/test/data/test_data.csv")
 
 @pytest.fixture(scope="module")
@@ -108,7 +108,7 @@ def test_csv(client):
 
     job = FormatJob(spec).validate()
     assert(isinstance(job, ValidFormatJob))
-    job.run(cluster_spec)
+    result = job.run(cluster_spec)
 
     parts = ["0.part", '1.part']
     assert(sorted(listdir(TMP + "csv/")) == parts)
