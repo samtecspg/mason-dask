@@ -12,6 +12,7 @@ from schema import Schema, Use, And, SchemaError
 from schema import Optional as SOptional
 from pandas import DataFrame as PDataFrame
 
+from .valid_job import ValidJob
 from .executed import InvalidJob, ExecutedJob
 from ..models.dataframe_from import VALID_INPUT_FORMATS, df_from
 from ..models.dataframe_to import df_to
@@ -50,7 +51,7 @@ class FormatJob:
         except SchemaError as e:
             return InvalidJob(f"Invalid Schema: {message(e)}")
 
-class ValidFormatJob:
+class ValidFormatJob(ValidJob):
 
     def __init__(self, t):
         self.input_paths: List[str] = t.input_paths

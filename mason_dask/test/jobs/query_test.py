@@ -2,6 +2,8 @@ from os import path
 from shutil import rmtree
 
 import pytest
+from distributed import Client, LocalCluster
+from mason_dask.utils.cluster_spec import ClusterSpec
 
 from mason_dask.definitions import from_root
 from mason_dask.jobs.executed import InvalidJob
@@ -16,12 +18,16 @@ def run_around_tests():
     yield
     clear_tmp()
 
+@pytest.fixture(scope="module")
+def client():
+    with Client(LocalCluster(n_workers=2)) as client:
+        yield(client)
 
 def clear_tmp():
     if path.exists(TMP):
         rmtree(TMP)
 
-def test_schema():
+def test_schema(client):
     in_paths = ["good_input_path", "good_input_path2"]
     in_format = "csv"
     out_path = "good_output_path"
@@ -49,8 +55,9 @@ def test_schema():
         job = QueryJob(good_spec).validate()
         assert (isinstance(job, InvalidJob))
 
-def test_basic():
-    # limit
+def test_basic(client):
+
+    cluster_spec = ClusterSpec(client)
     spec = {
         "input_paths": [TEST_DATA],
         "input_format": "csv",
@@ -60,7 +67,7 @@ def test_basic():
 
     job = QueryJob(spec).validate()
     assert (isinstance(job, ValidQueryJob))
-    assert(job.run().bind(lambda e: e.message) == "Table succesfully formatted as parquet and exported to ../tmp/query_out/") # type: ignore
+    assert(job.run(cluster_spec).bind(lambda e: e.message) == "Table succesfully formatted as parquet and exported to ../tmp/query_out/") # type: ignore
     df = dd.read_parquet(TMP + f"/query_out/part.0.parquet").compute()
 
     assert(df.shape[0] == 3)
@@ -78,7 +85,7 @@ def test_basic():
     }
     job = QueryJob(spec).validate()
     assert (isinstance(job, ValidQueryJob))
-    job.run()
+    job.run(cluster_spec)
 
     assert (isinstance(job, ValidQueryJob))
     df = dd.read_parquet(TMP + f"/query_out/part.0.parquet").compute()

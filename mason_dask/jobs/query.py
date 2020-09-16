@@ -2,6 +2,7 @@ from collections import namedtuple
 from typing import Union, List
 
 from dask.dataframe import DataFrame
+from mason_dask.utils.cluster_spec import ClusterSpec
 from returns.result import Result, Success
 
 from mason_dask.jobs.executed import InvalidJob, ExecutedJob
@@ -29,7 +30,7 @@ class ValidQueryJob:
         self.line_terminator: str = t.line_terminator
         self.table_name: str = t.table_name
 
-    def run(self) -> Result[ExecutedJob, InvalidJob]:
+    def run(self, cluster_spec: ClusterSpec) -> Result[ExecutedJob, InvalidJob]:
         return flow(
             self.df(),
             bind(self.query),
