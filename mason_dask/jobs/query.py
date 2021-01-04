@@ -42,7 +42,7 @@ class ValidQueryJob:
     
     def query(self, dataframe: DataFrame) -> Result[DataFrame, InvalidJob]:
         c = Context()
-        c.register_dask_table(dataframe, self.table_name)
+        c.create_table(self.table_name, dataframe)
         queried = c.sql(self.query_string)
         return Success(queried)
     

@@ -75,13 +75,12 @@ def test_basic(client):
     assert(sorted(list(df["col_b"])) == ["test2", "test2", "test3"])
     assert(sorted(list(df["col_c"])) == [456.0, 456.0, 456.0])
 
-
     # where
     spec = {
         "input_paths": [TEST_DATA],
         "input_format": "csv",
         "output_path": TMP + "query_out/",
-        "query_string": "SELECT * from $table WHERE col_a = '123.0'"
+        "query_string": "SELECT * from $table WHERE col_a <= 123.0"
     }
     job = QueryJob(spec).validate()
     assert (isinstance(job, ValidQueryJob))
